@@ -1,0 +1,283 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Operações Mundo das Bombas</title>
+<meta name="theme-color" content="#0f53a8">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Operações MDB">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="img/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="img/icon-192.png">
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<div id="boot" class="boot"><img src="img/logo.png" alt="Mundo das Bombas" width="232" height="74"><p>Carregando…</p></div>
+
+<!-- ============ LOGIN ============ -->
+<section id="tela-login" class="auth" hidden>
+  <div class="auth-card">
+    <img src="img/logo.png" alt="Mundo das Bombas" class="auth-logo" width="232" height="74">
+    <h1>Operações</h1>
+    <form id="f-login" autocomplete="on">
+      <label>Usuário<input id="l-user" autocomplete="username" autocapitalize="none" spellcheck="false" required></label>
+      <label>Senha<input id="l-pass" type="password" autocomplete="current-password" required></label>
+      <button class="btn" type="submit">Entrar</button>
+      <p class="erro" id="l-erro" hidden></p>
+    </form>
+    <p class="hint">Esqueceu a senha? Peça ao gerente para criar uma nova.</p>
+  </div>
+</section>
+
+<section id="tela-primeiro" class="auth" hidden>
+  <div class="auth-card">
+    <img src="img/logo.png" alt="Mundo das Bombas" class="auth-logo" width="232" height="74">
+    <h1>Primeiro acesso</h1>
+    <p class="hint">Ainda não existe gerente. Crie agora o seu login. Depois, é você quem cria o login de cada funcionário.</p>
+    <form id="f-primeiro" autocomplete="off">
+      <label>Seu nome<input id="pg-nome" required></label>
+      <label>Usuário (sem espaço)<input id="pg-user" autocapitalize="none" spellcheck="false" required pattern="[a-zA-Z0-9._\-]{3,30}"></label>
+      <div class="row">
+        <label>Senha<input id="pg-pass" type="password" minlength="6" required autocomplete="new-password"></label>
+        <label>Repita a senha<input id="pg-pass2" type="password" minlength="6" required autocomplete="new-password"></label>
+      </div>
+      <button class="btn" type="submit">Criar gerente e entrar</button>
+      <p class="erro" id="pg-erro" hidden></p>
+    </form>
+  </div>
+</section>
+
+<!-- ============ APP ============ -->
+<div id="app" hidden>
+<header>
+  <div class="wrap top">
+    <img src="img/logo.png" alt="Mundo das Bombas" class="logo" width="150" height="48">
+    <button class="me" id="me" type="button" aria-haspopup="true"><span><b id="me-nome"></b><small id="me-funcao"></small></span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2"/></svg></button>
+    <div class="menu" id="menu" hidden>
+      <button type="button" id="m-senha">Trocar minha senha</button>
+      <button type="button" id="m-sair">Sair</button>
+    </div>
+  </div>
+  <div class="areas-bar"><div class="wrap areas" id="areas"></div></div>
+  <div class="subbar"><div class="wrap"><nav id="sub" aria-label="Seções"></nav></div></div>
+</header>
+
+<main class="wrap">
+  <div id="banner" class="banner" hidden></div>
+
+  <!-- ===== VEÍCULOS: ENTREGAS DO DIA ===== -->
+  <section data-view="v-entregas" hidden>
+    <div class="head">
+      <div><h2>Entregas do dia</h2><p class="lead">Lance uma entrega de cada vez: veículo, motorista e para onde foi. Assim fica o registro de quem foi, onde e em que dia.</p></div>
+    </div>
+    <div class="grid2">
+      <div class="panel">
+        <h3>Lançar entrega</h3>
+        <form id="f-entrega" autocomplete="off">
+          <div class="row">
+            <label>Data<input id="en-data" type="date" required></label>
+            <label>Hora<input id="en-hora" type="time"></label>
+          </div>
+          <div class="row">
+            <label>Veículo<select id="en-veiculo" required></select></label>
+            <label>Motorista<select id="en-motorista" required></select></label>
+          </div>
+          <label>Para onde foi<input id="en-destino" required list="dl-destinos" placeholder="Bairro, cidade ou endereço"></label>
+          <div class="row">
+            <label>Cliente<input id="en-cliente" list="dl-clientes" placeholder="Opcional"></label>
+            <label>Nota fiscal<input id="en-nf" class="num" inputmode="numeric" placeholder="Opcional"></label>
+          </div>
+          <label>Observação<input id="en-obs" placeholder="Opcional"></label>
+          <button class="btn" type="submit">Salvar e lançar a próxima</button>
+        </form>
+      </div>
+      <div class="panel">
+        <div class="daynav">
+          <button class="btn sm ghost" type="button" data-shift="en-dia" data-n="-1" aria-label="Dia anterior">‹</button>
+          <label>Ver o dia<input id="en-dia" type="date"></label>
+          <button class="btn sm ghost" type="button" data-shift="en-dia" data-n="1" aria-label="Próximo dia">›</button>
+        </div>
+        <p class="hint" id="en-resumo"></p>
+        <div class="list" id="en-list"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== VEÍCULOS: ABASTECIMENTO ===== -->
+  <section data-view="v-abast" hidden>
+    <div class="head"><div><h2>Abastecimento e gastos</h2><p class="lead">No abastecimento, anote os litros e o km do painel. É com esse km que o relatório calcula quanto o veículo rodou no mês e o consumo.</p></div></div>
+    <div class="grid2">
+      <div class="panel">
+        <h3>Lançar</h3>
+        <form id="f-gasto" autocomplete="off">
+          <div class="row">
+            <label>Veículo<select id="g-veiculo" required></select></label>
+            <label>Tipo<select id="g-tipo" required></select></label>
+          </div>
+          <div class="row">
+            <label>Data<input id="g-data" type="date" required></label>
+            <label>Valor (R$)<input id="g-valor" class="num" type="number" inputmode="decimal" step="0.01" min="0" required></label>
+          </div>
+          <div class="row" id="g-comb">
+            <label>Litros<input id="g-litros" class="num" type="number" inputmode="decimal" step="0.01" min="0"></label>
+            <label>Km no painel<input id="g-km" class="num" type="number" inputmode="numeric" min="0"></label>
+          </div>
+          <div class="row">
+            <label>Motorista<select id="g-motorista"></select></label>
+            <label>Posto / fornecedor<input id="g-fornecedor" placeholder="Opcional"></label>
+          </div>
+          <label>Descrição<input id="g-desc" placeholder="Ex.: troca de óleo e filtro"></label>
+          <div class="actions"><label class="btn sm ghost filebtn">Foto do cupom<input id="g-foto" type="file" accept="image/*" capture="environment"></label><span class="hint" id="g-foto-n"></span></div>
+          <button class="btn" type="submit">Salvar</button>
+        </form>
+      </div>
+      <div class="panel">
+        <div class="panel-head"><h3>Lançados</h3><label class="inline">Mês<input id="g-mes" type="month"></label></div>
+        <div class="list" id="g-list"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== VEÍCULOS: MOTORISTAS ===== -->
+  <section data-view="v-motoristas" hidden>
+    <div class="head"><div><h2>Motoristas</h2><p class="lead">Cadastro com CNH e validade. O app avisa quando a CNH está vencida ou vence em 30 dias.</p></div></div>
+    <div class="grid2">
+      <div class="panel">
+        <h3>Cadastrar motorista</h3>
+        <form id="f-motorista" autocomplete="off">
+          <label>Nome<input id="mo-nome" required></label>
+          <div class="row">
+            <label>Telefone<input id="mo-tel" inputmode="tel"></label>
+            <label>Login no app<select id="mo-user"></select></label>
+          </div>
+          <div class="row">
+            <label>Nº da CNH<input id="mo-cnh" class="num"></label>
+            <label>Categoria<select id="mo-cat"><option>B</option><option>C</option><option>D</option><option>E</option><option>AB</option><option>AC</option><option>AD</option><option>AE</option></select></label>
+          </div>
+          <label>Validade da CNH<input id="mo-val" type="date"></label>
+          <button class="btn" type="submit">Cadastrar motorista</button>
+        </form>
+      </div>
+      <div class="panel"><h3>Motoristas</h3><div class="list" id="mo-list"></div></div>
+    </div>
+  </section>
+
+  <!-- ===== VEÍCULOS: CADASTRO ===== -->
+  <section data-view="v-veiculos" hidden>
+    <div class="head"><div><h2>Veículos</h2><p class="lead">Cadastre cada veículo uma vez, com o km do painel de hoje.</p></div></div>
+    <div class="grid2">
+      <div class="panel">
+        <h3>Cadastrar veículo</h3>
+        <form id="f-veiculo" autocomplete="off">
+          <div class="row">
+            <label>Placa<input id="ve-placa" required maxlength="8" placeholder="ABC1D23" class="upper"></label>
+            <label>Km atual<input id="ve-km" class="num" type="number" inputmode="numeric" min="0" required></label>
+          </div>
+          <label>Modelo<input id="ve-modelo" required placeholder="Ex.: Fiat Fiorino 1.4"></label>
+          <label>Apelido<input id="ve-apelido" placeholder="Ex.: Fiorino branca"></label>
+          <button class="btn" type="submit">Cadastrar veículo</button>
+        </form>
+      </div>
+      <div class="panel"><h3>Frota</h3><div class="list" id="ve-list"></div></div>
+    </div>
+  </section>
+
+  <!-- ===== VEÍCULOS: RELATÓRIO ===== -->
+  <section data-view="v-rel" hidden>
+    <div class="head"><div><h2>Relatório veicular mensal</h2><p class="lead">Entregas, km rodado, abastecimento e gastos por veículo e por motorista. O km rodado é a diferença entre o km do painel anotado no último abastecimento do mês e o anterior.</p></div></div>
+    <div class="filters">
+      <label>Mês<input id="vr-mes" type="month"></label>
+      <button class="btn ghost" id="vr-csv" type="button">Baixar planilha (CSV)</button>
+    </div>
+    <div class="kpis" id="vr-kpis"></div>
+    <div class="panel"><h4>Por veículo</h4><div class="tablebox"><table id="vr-pv"></table></div></div>
+    <div class="panel"><h4>Por motorista</h4><div class="tablebox"><table id="vr-pm"></table></div></div>
+    <div class="grid2">
+      <div class="panel"><h4>Entregas por dia</h4><div class="bars" id="vr-dias"></div></div>
+      <div class="panel"><h4>Destinos mais frequentes</h4><div class="bars" id="vr-dest"></div></div>
+    </div>
+    <div class="panel"><h4>Gastos por tipo</h4><div class="bars" id="vr-tipos"></div></div>
+  </section>
+
+  <!-- ===== ESTOQUE: REGISTRAR SAÍDA ===== -->
+  <section data-view="e-saida" hidden>
+    <div class="head"><div><h2>Registrar saída</h2><p class="lead">Tire a foto do que está saindo, preencha o que é, a NF, o pedido e o cliente, e salve. O formulário limpa para você registrar o próximo.</p></div></div>
+    <div class="grid2">
+      <div class="panel">
+        <form id="f-saida" autocomplete="off">
+          <label class="camera"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>Tirar foto<small id="sa-cam-hint">Pode tirar mais de uma</small><input id="sa-fotos" type="file" accept="image/*" capture="environment" multiple></label>
+          <div class="shots" id="sa-shots"></div>
+          <label>O que é<input id="sa-desc" required placeholder="Ex.: 2 bombas submersas 1 CV + 10 m de cabo"></label>
+          <div class="row">
+            <label>Nota fiscal<input id="sa-nf" class="num" inputmode="numeric" placeholder="Ex.: 4521"></label>
+            <label>Nº do pedido<input id="sa-ped" class="num" placeholder="Ex.: 10452"></label>
+          </div>
+          <label>Cliente<input id="sa-cli" list="dl-clientes" required placeholder="Nome ou empresa"></label>
+          <div class="row">
+            <label>Situação<select id="sa-sit"><option>Entregue ao cliente</option><option>Retirado na loja</option><option>Saiu no veículo da loja</option><option>Enviado por transportadora</option></select></label>
+            <label>Quem recebeu / levou<input id="sa-rec" placeholder="Opcional"></label>
+          </div>
+          <div class="row">
+            <label>Data<input id="sa-data" type="date" required></label>
+            <label>Observação<input id="sa-obs" placeholder="Opcional"></label>
+          </div>
+          <button class="btn" type="submit" id="sa-save">Salvar e registrar o próximo</button>
+        </form>
+      </div>
+      <div class="panel">
+        <div class="panel-head"><h3 id="sa-hoje-t">Registrados hoje</h3><button class="btn sm ghost" type="button" data-goview="e-historico">Histórico</button></div>
+        <div class="list" id="sa-hoje"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== ESTOQUE: HISTÓRICO ===== -->
+  <section data-view="e-historico" hidden>
+    <div class="head"><div><h2>Histórico de saídas</h2><p class="lead">Escolha o dia para ver tudo o que saiu. Toque num registro para abrir as fotos e os dados.</p></div></div>
+    <div class="daynav">
+      <button class="btn sm ghost" type="button" data-shift="hi-dia" data-n="-1" aria-label="Dia anterior">‹</button>
+      <label>Dia<input id="hi-dia" type="date"></label>
+      <button class="btn sm ghost" type="button" data-shift="hi-dia" data-n="1" aria-label="Próximo dia">›</button>
+      <label class="grow">Buscar em todos os dias<input id="hi-busca" type="search" placeholder="Cliente, NF, pedido ou produto"></label>
+    </div>
+    <p class="hint" id="hi-resumo"></p>
+    <div class="list" id="hi-list"></div>
+  </section>
+
+  <!-- ===== EQUIPE ===== -->
+  <section data-view="equipe" hidden>
+    <div class="head"><div><h2>Equipe e logins</h2><p class="lead">Crie o usuário e a senha de cada funcionário e escolha a função. Estoque registra saídas e vê o histórico. Motorista lança entregas e abastecimento. Só o gerente altera ou exclui qualquer coisa.</p></div></div>
+    <div class="grid2">
+      <div class="panel">
+        <h3>Criar login</h3>
+        <form id="f-user" autocomplete="off">
+          <label>Nome<input id="u-nome" required></label>
+          <div class="row">
+            <label>Usuário (sem espaço)<input id="u-user" required autocapitalize="none" spellcheck="false" pattern="[a-zA-Z0-9._\-]{3,30}"></label>
+            <label>Senha inicial<input id="u-pass" required minlength="6" autocomplete="new-password"></label>
+          </div>
+          <label>Função<select id="u-funcao"><option value="estoque">Estoque</option><option value="motorista">Motorista</option><option value="gerente">Gerente</option></select></label>
+          <button class="btn" type="submit">Criar login</button>
+          <p class="hint">Passe o usuário e a senha para a pessoa. Ela pode trocar a senha depois, no menu com o nome dela.</p>
+        </form>
+      </div>
+      <div class="panel"><h3>Logins</h3><div class="list" id="u-list"></div></div>
+    </div>
+  </section>
+</main>
+<footer class="wrap"><strong>Mundo das Bombas</strong> · Av. Castelo Branco, Qd. 65, Lt. 07 · Goiânia - GO · (62) 3602-5399</footer>
+</div>
+
+<datalist id="dl-clientes"></datalist><datalist id="dl-destinos"></datalist>
+<div class="overlay" id="ov" hidden role="dialog" aria-modal="true"><div class="sheet" id="ov-sheet"></div></div>
+<div class="toast" id="toast" hidden></div>
+
+<script src="config.js"></script>
+<script src="vendor/supabase.js"></script>
+<script src="app.js"></script>
+<script>
+if ("serviceWorker" in navigator && location.protocol === "https:") navigator.serviceWorker.register("sw.js").catch(() => {});
+</script>
+</body>
+</html>
