@@ -1,5 +1,5 @@
 // Guarda as telas do app para abrir rápido. Dados e fotos sempre vêm da nuvem.
-const CACHE = "ops-mdb-v1";
+const CACHE = "ops-mdb-v2";
 const ARQUIVOS = ["./", "index.html", "app.css", "app.js", "config.js", "vendor/supabase.js", "img/logo.png", "img/icon.svg", "img/icon-192.png", "manifest.webmanifest"];
 
 self.addEventListener("install", e => {

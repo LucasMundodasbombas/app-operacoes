@@ -245,9 +245,89 @@
     <div class="list" id="hi-list"></div>
   </section>
 
+  <!-- ===== ERROS: REGISTRAR ===== -->
+  <section data-view="x-novo" hidden>
+    <div class="head"><div><h2>Registrar erro</h2><p class="lead">Anote tudo o que deu errado numa entrega ou separação: o tipo do erro, o que aconteceu, a NF, o pedido e o cliente. Junte fotos do produto e prints das mensagens. Depois o erro é estudado para não acontecer de novo.</p></div></div>
+    <div class="grid2">
+      <div class="panel">
+        <form id="f-erro" autocomplete="off">
+          <div class="row">
+            <label>Data do erro<input id="er-data" type="date" required></label>
+            <label>Tipo do erro<select id="er-tipo" required></select></label>
+          </div>
+          <label>Onde aconteceu<select id="er-origem"></select></label>
+          <label>O que aconteceu<textarea id="er-desc" rows="4" required placeholder="Ex.: separamos bomba 1 CV, o pedido era de 2 CV. Cliente percebeu na instalação."></textarea></label>
+          <div class="row">
+            <label>Nota fiscal<input id="er-nf" class="num" inputmode="numeric" placeholder="Opcional"></label>
+            <label>Nº do pedido<input id="er-ped" class="num" placeholder="Opcional"></label>
+          </div>
+          <div class="row">
+            <label>Cliente<input id="er-cli" list="dl-clientes" placeholder="Opcional"></label>
+            <label>Prejuízo (R$)<input id="er-prej" class="num" type="number" inputmode="decimal" step="0.01" min="0" placeholder="Frete, troca, desconto…"></label>
+          </div>
+          <div class="photo-pick">
+            <label class="camera"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>Tirar foto<small>do produto ou da embalagem</small><input id="er-cam" type="file" accept="image/*" capture="environment" multiple></label>
+            <label class="camera"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M9 6h6M9 10h6M9 14h4"/></svg>Prints e fotos<small>mensagens do cliente, da galeria</small><input id="er-gal" type="file" accept="image/*" multiple></label>
+          </div>
+          <div class="shots" id="er-shots"></div>
+          <details class="more"><summary>Análise (pode preencher depois)</summary>
+            <label>Por que aconteceu<textarea id="er-causa" rows="2" placeholder="Ex.: as duas bombas ficam na mesma prateleira sem etiqueta"></textarea></label>
+            <label>O que fazer para não repetir<textarea id="er-acao" rows="2" placeholder="Ex.: etiquetar a prateleira e conferir o modelo na NF antes de embalar"></textarea></label>
+          </details>
+          <div class="checks" id="er-status-g" hidden>
+            <label class="check"><input type="checkbox" id="er-verif"> Já verificado junto ao estoque</label>
+            <label class="check"><input type="checkbox" id="er-resol"> Já resolvido</label>
+          </div>
+          <button class="btn" type="submit" id="er-save">Salvar erro</button>
+        </form>
+      </div>
+      <div class="panel">
+        <div class="panel-head"><h3>Últimos registrados</h3><button class="btn sm ghost" type="button" data-goview="x-lista">Ver todos</button></div>
+        <div class="list" id="er-ultimos"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== ERROS: LISTA ===== -->
+  <section data-view="x-lista" hidden>
+    <div class="head"><div><h2>Erros registrados</h2><p class="lead">Acompanhe cada erro até ficar resolvido. Toque num erro para ver as fotos, as mensagens e anotar o que foi feito.</p></div></div>
+    <div class="chips" id="xl-sit" role="group" aria-label="Situação">
+      <button type="button" data-sit="abertos" aria-pressed="true">Não resolvidos</button>
+      <button type="button" data-sit="nverif" aria-pressed="false">Não verificados com o estoque</button>
+      <button type="button" data-sit="resolvidos" aria-pressed="false">Resolvidos</button>
+      <button type="button" data-sit="todos" aria-pressed="false">Todos</button>
+    </div>
+    <div class="filters">
+      <label>Tipo<select id="xl-tipo"></select></label>
+      <label>Mês<input id="xl-mes" type="month"></label>
+      <label class="grow">Buscar<input id="xl-busca" type="search" placeholder="Cliente, NF, pedido ou texto"></label>
+    </div>
+    <p class="hint" id="xl-resumo"></p>
+    <div class="list" id="xl-list"></div>
+  </section>
+
+  <!-- ===== ERROS: ESTUDO ===== -->
+  <section data-view="x-estudo" hidden>
+    <div class="head"><div><h2>Erros comuns</h2><p class="lead">O que mais se repete, onde acontece e quanto custa. Use para decidir o que mudar no estoque.</p></div></div>
+    <div class="filters">
+      <label>Período<select id="xs-per"><option value="1">Este mês</option><option value="3" selected>Últimos 3 meses</option><option value="6">Últimos 6 meses</option><option value="12">Últimos 12 meses</option><option value="0">Tudo</option></select></label>
+      <button class="btn ghost" id="xs-csv" type="button">Baixar planilha (CSV)</button>
+    </div>
+    <div class="kpis" id="xs-kpis"></div>
+    <div class="grid2">
+      <div class="panel"><h4>Tipos de erro que mais acontecem</h4><div class="bars" id="xs-tipos"></div></div>
+      <div class="panel"><h4>Onde acontece</h4><div class="bars" id="xs-origem"></div></div>
+    </div>
+    <div class="grid2">
+      <div class="panel"><h4>Erros por mês</h4><div class="bars" id="xs-mes"></div></div>
+      <div class="panel"><h4>Clientes com mais erros</h4><div class="bars" id="xs-cli"></div></div>
+    </div>
+    <div class="panel"><h4>O que foi combinado para não repetir</h4><div class="list" id="xs-acoes"></div></div>
+  </section>
+
   <!-- ===== EQUIPE ===== -->
   <section data-view="equipe" hidden>
-    <div class="head"><div><h2>Equipe e logins</h2><p class="lead">Crie o usuário e a senha de cada funcionário e escolha a função. Estoque registra saídas e vê o histórico. Motorista lança entregas e abastecimento. Só o gerente altera ou exclui qualquer coisa.</p></div></div>
+    <div class="head"><div><h2>Equipe e logins</h2><p class="lead">Crie o usuário e a senha de cada funcionário e escolha a função. Estoque registra saídas, vê o histórico e registra erros. Motorista lança entregas e abastecimento. Só o gerente altera ou exclui qualquer coisa.</p></div></div>
     <div class="grid2">
       <div class="panel">
         <h3>Criar login</h3>

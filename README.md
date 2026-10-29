@@ -4,14 +4,15 @@ Aplicativo de celular (PWA) com duas áreas:
 
 - **Veículos:** entregas do dia (quem foi, onde e com qual veículo), abastecimento e gastos, motoristas, veículos e relatório mensal.
 - **Estoque:** registro de saída com foto (o que é, NF, pedido e cliente) e histórico por dia.
+- **Erros:** registro dos erros de entrega e de separação, com fotos e prints das mensagens, acompanhamento, situação (resolvido e verificado junto ao estoque) e o estudo dos erros mais comuns.
 
 Cada funcionário entra com usuário e senha criados pelo gerente. Todos podem lançar na sua área. **Só o gerente altera ou exclui**, e essa trava fica no banco de dados.
 
 | Função | O que vê e faz |
 |---|---|
-| Gerente | Tudo, inclusive alterar, excluir, criar logins e trocar senhas |
+| Gerente | Tudo, inclusive alterar, excluir, marcar erro como resolvido ou verificado, criar logins e trocar senhas |
 | Motorista | Veículos: lança entregas e gastos |
-| Estoque | Estoque: registra saídas e consulta o histórico |
+| Estoque | Estoque e Erros: registra saídas, consulta o histórico, registra erros e anota no acompanhamento |
 
 ## Como colocar no ar (uma vez só)
 
@@ -32,6 +33,8 @@ Cada funcionário entra com usuário e senha criados pelo gerente. Todos podem l
 - **iPhone (Safari):** abra o link, toque em *Compartilhar* › *Adicionar à Tela de Início*.
 
 ## Bom saber
+
+- Se o banco já foi criado antes, rode o `supabase/schema.sql` de novo depois de cada atualização do app. Ele não apaga dados.
 
 - Sem `config.js` preenchido, o app abre em **modo demonstração**, com dados salvos só naquele aparelho.
 - As fotos ficam numa pasta privada do Supabase; só quem tem login ativo consegue abrir.

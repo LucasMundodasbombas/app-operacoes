@@ -10,10 +10,13 @@ const EMAIL_DOM = "login.mundodasbombasgo.com.br";
 const toEmail = u => u.trim().toLowerCase() + "@" + EMAIL_DOM;
 const TIPOS = ["Combustível", "Manutenção", "Pneus", "Pedágio", "Estacionamento", "Lavagem", "Multa", "Documentação / IPVA", "Seguro", "Outros"];
 const SITUACOES = ["Entregue ao cliente", "Retirado na loja", "Saiu no veículo da loja", "Enviado por transportadora"];
+const TIPOS_ERRO = ["Produto errado", "Quantidade errada", "Faltou item", "Item a mais", "Produto danificado / avariado", "Cliente ou endereço errado", "NF ou pedido errado", "Atraso na separação ou entrega", "Embalagem inadequada", "Outro"];
+const ORIGENS = ["Separação no estoque", "Conferência", "Embalagem", "Carregamento", "Entrega / motorista", "Pedido / vendas", "Faturamento / NF", "Fornecedor", "Outro"];
 const FUNCOES = { gerente: "Gerente", estoque: "Estoque", motorista: "Motorista" };
 const AREAS = {
   veiculos: { label: "Veículos", tabs: [["v-entregas", "Entregas do dia", ["gerente", "motorista"]], ["v-abast", "Abastecimento e gastos", ["gerente", "motorista"]], ["v-motoristas", "Motoristas", ["gerente"]], ["v-veiculos", "Veículos", ["gerente"]], ["v-rel", "Relatório", ["gerente"]]] },
   estoque: { label: "Estoque", tabs: [["e-saida", "Registrar saída", ["gerente", "estoque"]], ["e-historico", "Histórico", ["gerente", "estoque"]]] },
+  erros: { label: "Erros", tabs: [["x-novo", "Registrar erro", ["gerente", "estoque"]], ["x-lista", "Erros registrados", ["gerente", "estoque"]], ["x-estudo", "Erros comuns", ["gerente", "estoque"]]] },
   equipe: { label: "Equipe", small: true, tabs: [["equipe", "Equipe e logins", ["gerente"]]] }
 };
 
@@ -123,12 +126,13 @@ function supabaseBackend() {
 function demoBackend() {
   const KEY = "ops-demo-v1";
   let db; try { db = JSON.parse(localStorage.getItem(KEY) || "null"); } catch (e) { db = null; }
-  db = db || { users: [], perfis: [], veiculos: [], motoristas: [], entregas: [], gastos: [], saidas: [], fotos: {}, sess: null };
+  db = db || { users: [], perfis: [], veiculos: [], motoristas: [], entregas: [], gastos: [], saidas: [], erros: [], erros_notas: [], fotos: {}, sess: null };
+  db.erros = db.erros || []; db.erros_notas = db.erros_notas || [];
   const save = () => { try { localStorage.setItem(KEY, JSON.stringify(db)); } catch (e) { toast("O armazenamento deste aparelho encheu. No app de verdade as fotos vão para a nuvem."); } };
   const me = () => db.perfis.find(p => p.id === db.sess && p.ativo);
   const role = () => (me() || {}).funcao;
-  const ver = { perfis: () => !!role(), veiculos: () => ["gerente", "motorista"].includes(role()), motoristas: () => ["gerente", "motorista"].includes(role()), entregas: () => ["gerente", "motorista"].includes(role()), gastos: () => ["gerente", "motorista"].includes(role()), saidas: () => ["gerente", "estoque"].includes(role()) };
-  const criar = { perfis: () => role() === "gerente", veiculos: () => role() === "gerente", motoristas: () => role() === "gerente", entregas: ver.entregas, gastos: ver.gastos, saidas: ver.saidas };
+  const ver = { perfis: () => !!role(), veiculos: () => ["gerente", "motorista"].includes(role()), motoristas: () => ["gerente", "motorista"].includes(role()), entregas: () => ["gerente", "motorista"].includes(role()), gastos: () => ["gerente", "motorista"].includes(role()), saidas: () => ["gerente", "estoque"].includes(role()), erros: () => ["gerente", "estoque"].includes(role()), erros_notas: () => ["gerente", "estoque"].includes(role()) };
+  const criar = { perfis: () => role() === "gerente", veiculos: () => role() === "gerente", motoristas: () => role() === "gerente", entregas: ver.entregas, gastos: ver.gastos, saidas: ver.saidas, erros: ver.erros, erros_notas: ver.erros_notas };
   const deny = () => { throw { message: "row-level security" }; };
   return {
     async temSessao() { return !!db.sess; },
@@ -155,11 +159,11 @@ function demoBackend() {
       if (!criar[t] || !criar[t]()) deny();
       if (t === "veiculos" && db.veiculos.some(v => v.placa === row.placa)) throw new Error("Essa placa já está cadastrada.");
       const r = { id: uid(), criado_em: new Date().toISOString(), ativo: true, ...row };
-      if (["entregas", "gastos", "saidas"].includes(t)) r.criado_por = db.sess;
+      if (["entregas", "gastos", "saidas", "erros", "erros_notas"].includes(t)) r.criado_por = db.sess;
       db[t].push(r); save(); return r;
     },
     async update(t, id, patch) { if (role() !== "gerente") throw { code: "denied" }; const r = db[t].find(x => x.id === id); if (!r) throw { code: "denied" }; Object.assign(r, patch); save(); return r; },
-    async remove(t, id) { if (role() !== "gerente") throw { code: "denied" }; const n = db[t].length; db[t] = db[t].filter(x => x.id !== id); if (db[t].length === n) throw { code: "denied" }; save(); },
+    async remove(t, id) { if (role() !== "gerente") throw { code: "denied" }; const n = db[t].length; db[t] = db[t].filter(x => x.id !== id); if (db[t].length === n) throw { code: "denied" }; if (t === "erros") db.erros_notas = db.erros_notas.filter(x => x.erro_id !== id); save(); },
     async upload(path, blob) {
       const small = await shrink(blob, 700, .6);
       db.fotos[path] = await new Promise(r => { const fr = new FileReader(); fr.onload = () => r(fr.result); fr.readAsDataURL(small); });
@@ -278,7 +282,7 @@ $("areas").addEventListener("click", e => { const b = e.target.closest("[data-ar
 $("sub").addEventListener("click", e => { const b = e.target.closest("[data-view]"); if (b) go(b.dataset.view); });
 document.addEventListener("click", e => { const b = e.target.closest("[data-goview]"); if (b) go(b.dataset.goview); });
 document.addEventListener("click", e => { const b = e.target.closest("[data-shift]"); if (!b) return; const i = $(b.dataset.shift); i.value = shiftDay(i.value || today(), +b.dataset.n); if (b.dataset.shift === "hi-dia") $("hi-busca").value = ""; render(); });
-const RENDER = { "v-entregas": rEntregas, "v-abast": rAbast, "v-motoristas": rMotoristas, "v-veiculos": rVeiculos, "v-rel": rRel, "e-saida": rSaida, "e-historico": rHistorico, "equipe": rEquipe };
+const RENDER = { "v-entregas": rEntregas, "v-abast": rAbast, "v-motoristas": rMotoristas, "v-veiculos": rVeiculos, "v-rel": rRel, "e-saida": rSaida, "e-historico": rHistorico, "x-novo": rErroNovo, "x-lista": rErroLista, "x-estudo": rErroEstudo, "equipe": rEquipe };
 function render() { const f = RENDER[S.view]; if (f) f().catch(e => { console.error(e); toast(msgErro(e)); }); }
 
 /* ================= selects ================= */
@@ -298,6 +302,7 @@ async function sugestoes() {
   try {
     if (can(["motorista"])) (await api.select("entregas", { cols: "destino,cliente", order: "-criado_em", limit: 400 })).forEach(r => { if (r.destino) destinos.add(r.destino); if (r.cliente) clientes.add(r.cliente); });
     if (can(["estoque"])) (await api.select("saidas", { cols: "cliente", order: "-criado_em", limit: 400 })).forEach(r => r.cliente && clientes.add(r.cliente));
+    if (can(["estoque"])) (await api.select("erros", { cols: "cliente", order: "-criado_em", limit: 200 })).forEach(r => r.cliente && clientes.add(r.cliente));
   } catch (e) {}
   $("dl-clientes").innerHTML = [...clientes].sort().map(c => `<option value="${esc(c)}">`).join("");
   $("dl-destinos").innerHTML = [...destinos].sort().map(c => `<option value="${esc(c)}">`).join("");
@@ -502,6 +507,150 @@ document.addEventListener("click", e => {
   });
 });
 
+/* ================= ERROS: registro, acompanhamento e estudo ================= */
+const ES = { shots: [], sit: "abertos" };
+$("er-tipo").innerHTML = TIPOS_ERRO.map(t => `<option>${t}</option>`).join("");
+$("er-origem").innerHTML = `<option value="">Não sei / outro</option>` + ORIGENS.map(t => `<option>${t}</option>`).join("");
+$("xl-tipo").innerHTML = `<option value="">Todos os tipos</option>` + TIPOS_ERRO.map(t => `<option>${t}</option>`).join("");
+$("er-data").value = today();
+const erroPills = r => `<span class="pills">${r.resolvido ? `<span class="pill ok">Resolvido</span>` : `<span class="pill bad">Não resolvido</span>`}${r.verificado_estoque ? `<span class="pill ok">Verificado com o estoque</span>` : `<span class="pill warn">Não verificado com o estoque</span>`}</span>`;
+function erroCard(r) {
+  const f = (r.fotos || [])[0];
+  return `<button type="button" class="item" data-erro="${r.id}"><span class="thumb">${f && fotoUrl(f) ? `<img src="${fotoUrl(f)}" alt="" loading="lazy">` : f ? "Foto" : "Sem foto"}</span><span class="info"><strong>${esc(r.tipo)}${r.cliente ? " · " + esc(r.cliente) : ""}</strong><span class="meta">${esc(r.descricao.length > 110 ? r.descricao.slice(0, 110) + "…" : r.descricao)}</span><span class="meta">${fmtD(r.data)}${r.origem ? " · " + esc(r.origem) : ""}${r.nf ? " · NF " + esc(r.nf) : ""}${r.pedido ? " · Pedido " + esc(r.pedido) : ""}${r.prejuizo ? " · " + brl(r.prejuizo) : ""}</span>${erroPills(r)}</span></button>`;
+}
+function guardarErros(l) { S.cache.erros = Object.assign(S.cache.erros || {}, Object.fromEntries(l.map(r => [r.id, r]))); }
+function renderErroShots() {
+  $("er-shots").innerHTML = ES.shots.map((s, i) => `<figure><img src="${s.url}" alt="Foto ${i + 1}"><button type="button" data-rmerro="${i}" aria-label="Remover foto">×</button></figure>`).join("");
+}
+["er-cam", "er-gal"].forEach(i => $(i).addEventListener("change", e => { [...e.target.files].forEach(f => ES.shots.push({ file: f, url: URL.createObjectURL(f) })); e.target.value = ""; renderErroShots(); }));
+$("er-shots").addEventListener("click", e => { const b = e.target.closest("[data-rmerro]"); if (!b) return; const [s] = ES.shots.splice(+b.dataset.rmerro, 1); URL.revokeObjectURL(s.url); renderErroShots(); });
+async function rErroNovo() {
+  sugestoes(); $("er-status-g").hidden = !isG();
+  const l = await api.select("erros", { order: ["-data", "-criado_em"], limit: 8 });
+  await loadUrls(l.map(r => (r.fotos || [])[0])); guardarErros(l);
+  $("er-ultimos").innerHTML = l.length ? l.map(erroCard).join("") : emptyBox("Nenhum erro registrado ainda", "Os erros salvos aparecem aqui.");
+}
+$("f-erro").addEventListener("submit", e => {
+  e.preventDefault();
+  const btn = $("er-save");
+  guard(async () => {
+    btn.textContent = ES.shots.length ? "Enviando fotos…" : "Salvando…";
+    try {
+      const d = $("er-data").value; const paths = [];
+      for (const s of ES.shots) paths.push(await api.upload(`erros/${d}/${uid()}.jpg`, await shrink(s.file)));
+      const g = isG(), resol = g && $("er-resol").checked, verif = g && $("er-verif").checked;
+      await api.insert("erros", { data: d, tipo: $("er-tipo").value, origem: $("er-origem").value || null, descricao: $("er-desc").value.trim(), nf: $("er-nf").value.trim() || null, pedido: $("er-ped").value.trim() || null, cliente: $("er-cli").value.trim() || null, prejuizo: $("er-prej").value === "" ? null : Number($("er-prej").value), causa: $("er-causa").value.trim() || null, acao: $("er-acao").value.trim() || null, fotos: paths, resolvido: resol, resolvido_em: resol ? today() : null, verificado_estoque: verif, verificado_em: verif ? today() : null });
+      ES.shots.forEach(s => URL.revokeObjectURL(s.url)); ES.shots = []; renderErroShots();
+      ["er-desc", "er-nf", "er-ped", "er-cli", "er-prej", "er-causa", "er-acao"].forEach(i => ($(i).value = "")); $("er-resol").checked = $("er-verif").checked = false;
+      S.cache.sug = false; toast("Erro registrado."); window.scrollTo({ top: 0, behavior: "smooth" }); render();
+    } finally { btn.textContent = "Salvar erro"; }
+  }, btn);
+});
+
+// lista
+$("xl-sit").addEventListener("click", e => { const b = e.target.closest("[data-sit]"); if (!b) return; ES.sit = b.dataset.sit; $("xl-sit").querySelectorAll("[data-sit]").forEach(x => x.setAttribute("aria-pressed", x === b)); render(); });
+$("xl-tipo").addEventListener("change", render); $("xl-mes").addEventListener("change", render);
+let xT; $("xl-busca").addEventListener("input", () => { clearTimeout(xT); xT = setTimeout(render, 300); });
+async function rErroLista() {
+  const q = $("xl-busca").value.trim().replace(/[,()%*\\]/g, " ").trim(), m = $("xl-mes").value, tipo = $("xl-tipo").value;
+  const opt = { order: ["-data", "-criado_em"], limit: 300 };
+  if (q) opt.search = { text: q, cols: ["cliente", "nf", "pedido", "descricao", "causa", "acao"] };
+  if (m) { const [a, b] = monthRange(m); opt.gte = { data: a }; opt.lte = { data: b }; }
+  if (tipo) opt.eq = { tipo };
+  const todos = await api.select("erros", opt);
+  const f = { abertos: r => !r.resolvido, nverif: r => !r.verificado_estoque, resolvidos: r => r.resolvido, todos: () => true }[ES.sit];
+  const l = todos.filter(f);
+  await loadUrls(l.map(r => (r.fotos || [])[0])); guardarErros(todos);
+  const ab = todos.filter(r => !r.resolvido).length, nv = todos.filter(r => !r.verificado_estoque).length;
+  $("xl-resumo").textContent = `${l.length} erro(s) nesta lista · ${ab} não resolvido(s) e ${nv} não verificado(s) com o estoque${m ? " em " + monthName(m) : ""}${tipo ? " · " + tipo : ""}`;
+  $("xl-list").innerHTML = l.length ? l.map(erroCard).join("") : emptyBox(ES.sit === "abertos" ? "Nenhum erro pendente" : "Nenhum erro nesta lista", "Troque o filtro ou registre um erro novo.");
+}
+
+// detalhe, situação e acompanhamento
+document.addEventListener("click", e => { const b = e.target.closest("[data-erro]"); if (b) guard(() => abrirErro(b.dataset.erro)); });
+async function abrirErro(id) {
+  let r = (await api.select("erros", { eq: { id } }))[0]; if (!r) { closeSheet(); return; }
+  guardarErros([r]); S.cache.erroAberto = id;
+  const notas = await api.select("erros_notas", { eq: { erro_id: id }, order: "criado_em" });
+  let saidas = [];
+  try {
+    const ch = [r.nf && ["nf", r.nf], r.pedido && ["pedido", r.pedido]].filter(Boolean);
+    for (const [k, v] of ch) (await api.select("saidas", { eq: { [k]: v }, order: "-data", limit: 5 })).forEach(x => { if (!saidas.some(y => y.id === x.id)) saidas.push(x); });
+  } catch (x) {}
+  S.cache.saidas = Object.assign(S.cache.saidas || {}, Object.fromEntries(saidas.map(x => [x.id, x])));
+  await loadUrls([...(r.fotos || []), ...notas.flatMap(n => n.fotos || []), ...saidas.map(x => (x.fotos || [])[0])]);
+  const fotosHtml = fs => fs.map((f, i) => fotoUrl(f) ? `<a href="${fotoUrl(f)}" target="_blank" rel="noopener"><img src="${fotoUrl(f)}" alt="Foto ${i + 1}"></a>` : "").join("");
+  const g = isG();
+  openSheet(`<div class="panel-head"><h3>${esc(r.tipo)}</h3><button class="btn sm ghost" type="button" data-close>Fechar</button></div>
+    <div class="status-box">
+      <div class="line"><span>${r.verificado_estoque ? `<span class="pill ok">Verificado com o estoque</span>${r.verificado_em ? ` <span class="hint">em ${fmtD(r.verificado_em)}</span>` : ""}` : `<span class="pill warn">Ainda não verificado com o estoque</span>`}</span>${g ? `<button class="btn sm ghost" type="button" data-erst="verificado_estoque" data-id="${r.id}" data-v="${!r.verificado_estoque}">${r.verificado_estoque ? "Desmarcar" : "Marcar verificado"}</button>` : ""}</div>
+      <div class="line"><span>${r.resolvido ? `<span class="pill ok">Resolvido</span>${r.resolvido_em ? ` <span class="hint">em ${fmtD(r.resolvido_em)}</span>` : ""}` : `<span class="pill bad">Não resolvido</span>`}</span>${g ? `<button class="btn sm ${r.resolvido ? "ghost" : ""}" type="button" data-erst="resolvido" data-id="${r.id}" data-v="${!r.resolvido}">${r.resolvido ? "Reabrir" : "Marcar resolvido"}</button>` : ""}</div>
+      ${g ? "" : `<p class="hint" style="margin:0">Só o gerente muda a situação.</p>`}
+    </div>
+    ${(r.fotos || []).length ? `<div class="big">${fotosHtml(r.fotos)}</div><p class="hint">Toque na foto para abrir em tamanho real.</p>` : ""}
+    <dl class="fields"><dt>Data</dt><dd>${esc(fmtDia(r.data))}</dd><dt>Onde</dt><dd>${esc(r.origem || "—")}</dd><dt>O que aconteceu</dt><dd class="pre">${esc(r.descricao)}</dd><dt>Cliente</dt><dd>${esc(r.cliente || "—")}</dd><dt>Nota fiscal</dt><dd class="mono">${esc(r.nf || "—")}</dd><dt>Pedido</dt><dd class="mono">${esc(r.pedido || "—")}</dd>${r.prejuizo ? `<dt>Prejuízo</dt><dd class="mono">${brl(r.prejuizo)}</dd>` : ""}<dt>Por que aconteceu</dt><dd class="pre">${esc(r.causa || "Ainda não analisado")}</dd><dt>Para não repetir</dt><dd class="pre">${esc(r.acao || "Ainda não definido")}</dd><dt>Registrado por</dt><dd>${esc(pnome(r.criado_por))}</dd></dl>
+    ${saidas.length ? `<h4>Saída registrada no estoque</h4><div class="list">${saidas.map(saidaCard).join("")}</div>` : ""}
+    <h4>Mensagens e acompanhamento</h4>
+    <div class="notas">${notas.length ? notas.map(n => `<div class="nota"><span class="meta">${esc(pnome(n.criado_por))} · ${new Date(n.criado_em).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}</span>${n.texto ? `<p>${esc(n.texto)}</p>` : ""}${(n.fotos || []).length ? `<div class="photos">${fotosHtml(n.fotos)}</div>` : ""}${g ? `<div class="actions">${editBtn("erros_notas", n.id)}${delBtn("erros_notas", n.id)}</div>` : ""}</div>`).join("") : `<p class="hint">Nada anotado ainda. Cole aqui o que o cliente falou, o que o estoque respondeu e o que foi feito.</p>`}</div>
+    <form id="f-nota"><label>Nova mensagem ou anotação<textarea id="nt-texto" rows="3" placeholder="Ex.: conferi com o estoque, a etiqueta da prateleira estava trocada"></textarea></label>
+      <label class="btn sm ghost filebtn">Anexar prints / fotos<input id="nt-fotos" type="file" accept="image/*" multiple></label><span class="hint" id="nt-n"></span>
+      <button class="btn" type="submit">Adicionar ao acompanhamento</button></form>
+    ${g ? `<div class="actions">${editBtn("erros", r.id)}${delBtn("erros", r.id, "Excluir erro")}</div>` : ""}`);
+  $("nt-fotos").addEventListener("change", () => ($("nt-n").textContent = $("nt-fotos").files.length ? $("nt-fotos").files.length + " foto(s) escolhida(s)" : ""));
+  $("f-nota").addEventListener("submit", ev => {
+    ev.preventDefault();
+    const texto = $("nt-texto").value.trim(), files = [...$("nt-fotos").files];
+    if (!texto && !files.length) { toast("Escreva a mensagem ou anexe uma foto."); return; }
+    guard(async () => {
+      const paths = [];
+      for (const f of files) paths.push(await api.upload(`erros/${r.data}/${uid()}.jpg`, await shrink(f)));
+      await api.insert("erros_notas", { erro_id: r.id, texto: texto || null, fotos: paths });
+      toast("Anotação adicionada."); await abrirErro(r.id);
+    }, ev.submitter);
+  });
+}
+document.addEventListener("click", e => {
+  const b = e.target.closest("[data-erst]"); if (!b) return;
+  const k = b.dataset.erst, v = b.dataset.v === "true";
+  guard(async () => {
+    const patch = k === "resolvido" ? { resolvido: v, resolvido_em: v ? today() : null } : { verificado_estoque: v, verificado_em: v ? today() : null };
+    await api.update("erros", b.dataset.id, patch);
+    toast(k === "resolvido" ? (v ? "Marcado como resolvido." : "Erro reaberto.") : (v ? "Marcado como verificado com o estoque." : "Verificação desmarcada."));
+    render(); await abrirErro(b.dataset.id);
+  }, b);
+});
+
+// estudo dos erros comuns
+$("xs-per").addEventListener("change", render);
+async function dadosErros() {
+  const n = +$("xs-per").value, opt = { order: ["-data"] };
+  if (n) { const d = new Date(); opt.gte = { data: ymd(new Date(d.getFullYear(), d.getMonth() - (n - 1), 1)) }; }
+  return api.select("erros", opt);
+}
+async function rErroEstudo() {
+  const l = await dadosErros(); guardarErros(l);
+  const per = $("xs-per").selectedOptions[0].textContent.toLowerCase();
+  const prej = l.reduce((s, r) => s + (Number(r.prejuizo) || 0), 0);
+  const ab = l.filter(r => !r.resolvido).length, nv = l.filter(r => !r.verificado_estoque).length;
+  const conta = key => { const m = {}; l.forEach(r => { const k = (key(r) || "").trim(); if (k) m[k] = (m[k] || 0) + 1; }); return Object.entries(m).sort((a, b) => b[1] - a[1]); };
+  const top = conta(r => r.tipo)[0];
+  $("xs-kpis").innerHTML = kpis([["Erros", num(l.length), per], ["Mais comum", top ? esc(top[0]) : "—", top ? top[1] + " vez(es)" : "sem registros"], ["Não resolvidos", num(ab), "aguardando solução"], ["Não verificados", num(nv), "conferir com o estoque"], ["Prejuízo anotado", brl(prej), "fretes, trocas, descontos"]]);
+  bars($("xs-tipos"), conta(r => r.tipo), v => num(v));
+  bars($("xs-origem"), conta(r => r.origem || "Não informado"), v => num(v));
+  bars($("xs-mes"), conta(r => r.data.slice(0, 7)).sort((a, b) => a[0].localeCompare(b[0])).map(([k, v]) => [monthName(k), v]), v => num(v));
+  bars($("xs-cli"), conta(r => r.cliente).slice(0, 10), v => num(v));
+  const ac = l.filter(r => r.acao);
+  $("xs-acoes").innerHTML = ac.length ? ac.map(r => `<button type="button" class="item" data-erro="${r.id}"><span class="info acao"><strong>${esc(r.tipo)}${r.origem ? " · " + esc(r.origem) : ""}</strong><span class="meta pre">${esc(r.acao)}</span><span class="meta">${fmtD(r.data)}${r.cliente ? " · " + esc(r.cliente) : ""}</span></span></button>`).join("") : emptyBox("Nenhuma ação combinada ainda", "Abra um erro e use Alterar para escrever por que aconteceu e o que fazer para não repetir.");
+}
+$("xs-csv").addEventListener("click", () => guard(async () => {
+  const l = await dadosErros();
+  const q = v => '"' + String(v ?? "").replace(/"/g, '""') + '"';
+  const L = [["Data", "Tipo", "Onde", "O que aconteceu", "Cliente", "NF", "Pedido", "Prejuízo (R$)", "Por que aconteceu", "Para não repetir", "Verificado com estoque", "Resolvido", "Registrado por"].map(q).join(";")];
+  l.forEach(r => L.push([q(fmtD(r.data)), q(r.tipo), q(r.origem), q(r.descricao), q(r.cliente), q(r.nf), q(r.pedido), (Number(r.prejuizo) || 0).toFixed(2).replace(".", ","), q(r.causa), q(r.acao), q(r.verificado_estoque ? "Sim" : "Não"), q(r.resolvido ? "Sim" : "Não"), q(pnome(r.criado_por))].join(";")));
+  const blob = new Blob(["﻿" + L.join("\r\n")], { type: "text/csv;charset=utf-8" });
+  const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "erros-" + today() + ".csv"; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+}));
+
 /* ================= EQUIPE ================= */
 async function rEquipe() {
   S.perfis = await api.select("perfis", { order: "nome" });
@@ -531,12 +680,15 @@ const EDIT = {
   entregas: [["data", "Data", "date"], ["hora", "Hora", "time"], ["veiculo_id", "Veículo", "veiculo"], ["motorista_id", "Motorista", "motorista"], ["destino", "Para onde foi", "text", true], ["cliente", "Cliente"], ["nf", "Nota fiscal"], ["obs", "Observação"]],
   gastos: [["data", "Data", "date"], ["veiculo_id", "Veículo", "veiculo"], ["motorista_id", "Motorista", "motorista"], ["tipo", "Tipo", TIPOS], ["valor", "Valor (R$)", "number"], ["litros", "Litros", "number"], ["km", "Km no painel", "number"], ["fornecedor", "Posto / fornecedor"], ["descricao", "Descrição"]],
   saidas: [["data", "Data", "date"], ["hora", "Hora", "time"], ["descricao", "O que é", "text", true], ["nf", "Nota fiscal"], ["pedido", "Nº do pedido"], ["cliente", "Cliente", "text", true], ["situacao", "Situação", SITUACOES], ["recebedor", "Quem recebeu / levou"], ["obs", "Observação"]],
+  erros: [["data", "Data do erro", "date"], ["tipo", "Tipo do erro", TIPOS_ERRO], ["origem", "Onde aconteceu", ORIGENS], ["descricao", "O que aconteceu", "area", true], ["nf", "Nota fiscal"], ["pedido", "Nº do pedido"], ["cliente", "Cliente"], ["prejuizo", "Prejuízo (R$)", "number"], ["causa", "Por que aconteceu", "area"], ["acao", "O que fazer para não repetir", "area"]],
+  erros_notas: [["texto", "Mensagem / anotação", "area"]],
   veiculos: [["placa", "Placa", "text", true], ["modelo", "Modelo", "text", true], ["apelido", "Apelido"], ["km_inicial", "Km no cadastro", "number"]],
   motoristas: [["nome", "Nome", "text", true], ["telefone", "Telefone"], ["cnh", "Nº da CNH"], ["categoria", "Categoria"], ["cnh_validade", "Validade da CNH", "date"], ["usuario_id", "Login no app", "login"]]
 };
 async function getRow(t, id) {
   if (t === "veiculos") return veic(id); if (t === "motoristas") return mot(id);
   if (t === "saidas" && S.cache.saidas && S.cache.saidas[id]) return S.cache.saidas[id];
+  if (t === "erros" && S.cache.erros && S.cache.erros[id]) return S.cache.erros[id];
   return (await api.select(t, { eq: { id } }))[0];
 }
 document.addEventListener("click", e => {
@@ -551,6 +703,7 @@ document.addEventListener("click", e => {
       else if (type === "veiculo") input = `<select name="${k}">${S.veiculos.map(x => `<option value="${x.id}"${x.id === v ? " selected" : ""}>${esc(x.placa)} · ${esc(vname(x))}</option>`).join("")}</select>`;
       else if (type === "motorista") input = `<select name="${k}"><option value="">—</option>${S.motoristas.map(x => `<option value="${x.id}"${x.id === v ? " selected" : ""}>${esc(x.nome)}</option>`).join("")}</select>`;
       else if (type === "login") input = `<select name="${k}"><option value="">Sem login</option>${S.perfis.filter(p => p.funcao === "motorista").map(x => `<option value="${x.id}"${x.id === v ? " selected" : ""}>${esc(x.nome)}</option>`).join("")}</select>`;
+      else if (type === "area") input = `<textarea name="${k}" rows="3"${req ? " required" : ""}>${esc(v)}</textarea>`;
       else input = `<input name="${k}" type="${type || "text"}" value="${esc(type === "time" ? hm(v) : v)}"${type === "number" ? ' step="any" inputmode="decimal"' : ""}${req ? " required" : ""}>`;
       return `<label>${l}${input}</label>`;
     };
@@ -563,6 +716,7 @@ document.addEventListener("click", e => {
         await api.update(t, id, patch);
         if (t === "veiculos" || t === "motoristas") await carregarBase();
         closeSheet(); toast("Alteração salva."); render();
+        if (t === "erros") abrirErro(id); else if (t === "erros_notas" && S.cache.erroAberto) abrirErro(S.cache.erroAberto);
       }, ev.submitter);
     });
   });
@@ -574,13 +728,15 @@ document.addEventListener("click", e => {
   guard(async () => {
     if (t === "veiculos" || t === "motoristas") { await api.update(t, id, { ativo: false }); await carregarBase(); toast("Desativado. O histórico continua no relatório."); }
     else {
-      const r = t === "saidas" ? await getRow(t, id) : t === "gastos" ? await getRow(t, id) : null;
+      const r = ["saidas", "gastos", "erros", "erros_notas"].includes(t) ? await getRow(t, id) : null;
+      const notas = t === "erros" ? await api.select("erros_notas", { eq: { erro_id: id } }) : [];
       await api.remove(t, id);
-      const fotos = r ? [].concat(r.fotos || [], r.foto || []) : [];
+      const fotos = r ? [].concat(r.fotos || [], r.foto || [], ...notas.map(n => n.fotos || [])) : [];
       try { await api.removerFotos(fotos); } catch (x) {}
       toast("Excluído.");
     }
     closeSheet(); render();
+    if (t === "erros_notas" && S.cache.erroAberto) abrirErro(S.cache.erroAberto);
   });
 });
 

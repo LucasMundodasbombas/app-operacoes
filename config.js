@@ -5,5 +5,5 @@
 // Com os dois campos vazios, o app abre em modo demonstração (dados só neste aparelho).
 window.APP_CONFIG = {
   supabaseUrl: "https://ghgeubdgejkrhxifukga.supabase.co",
-  supabaseKey: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdoZ2V1YmRnZWprcmh4aWZ1a2dhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTMxMTczMTUsImV4cCI6MjEwODY5MzMxNX0.JLCMcHQejsMYoXCRIqz6vysIR59yqfJKOH3ddySFW6o"
+  supabaseKey: "sb_publishable_Ge8yLeXDO8lnn8G_n2-5Xg_dLrBL1Vj"
 };

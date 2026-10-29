@@ -144,6 +144,42 @@ create table if not exists public.saidas (
 create index if not exists saidas_data on public.saidas(data);
 
 -- ---------------------------------------------------------------
+-- Registro de erros (entregas do estoque) e acompanhamento
+-- ---------------------------------------------------------------
+create table if not exists public.erros (
+  id uuid primary key default gen_random_uuid(),
+  data date not null,
+  tipo text not null,
+  origem text,
+  descricao text not null,
+  cliente text,
+  nf text,
+  pedido text,
+  prejuizo numeric(12,2),
+  causa text,
+  acao text,
+  fotos text[] not null default '{}',
+  resolvido boolean not null default false,
+  resolvido_em date,
+  verificado_estoque boolean not null default false,
+  verificado_em date,
+  criado_por uuid not null default auth.uid() references public.perfis(id),
+  criado_em timestamptz not null default now()
+);
+create index if not exists erros_data on public.erros(data);
+
+-- Mensagens, prints e anotações de cada erro, em ordem.
+create table if not exists public.erros_notas (
+  id uuid primary key default gen_random_uuid(),
+  erro_id uuid not null references public.erros(id) on delete cascade,
+  texto text,
+  fotos text[] not null default '{}',
+  criado_por uuid not null default auth.uid() references public.perfis(id),
+  criado_em timestamptz not null default now()
+);
+create index if not exists erros_notas_erro on public.erros_notas(erro_id);
+
+-- ---------------------------------------------------------------
 -- Regras de acesso (RLS)
 -- ---------------------------------------------------------------
 alter table public.perfis enable row level security;
@@ -152,13 +188,15 @@ alter table public.motoristas enable row level security;
 alter table public.entregas enable row level security;
 alter table public.gastos enable row level security;
 alter table public.saidas enable row level security;
+alter table public.erros enable row level security;
+alter table public.erros_notas enable row level security;
 
 do $$
 declare r record;
 begin
   -- apaga as regras antigas destas tabelas para poder rodar de novo
   for r in select policyname, tablename from pg_policies
-           where schemaname = 'public' and tablename in ('perfis','veiculos','motoristas','entregas','gastos','saidas')
+           where schemaname = 'public' and tablename in ('perfis','veiculos','motoristas','entregas','gastos','saidas','erros','erros_notas')
   loop execute format('drop policy if exists %I on public.%I', r.policyname, r.tablename); end loop;
 end $$;
 
@@ -195,9 +233,20 @@ create policy saidas_criar on public.saidas for insert to authenticated with che
 create policy saidas_mudar on public.saidas for update to authenticated using (public.e_gerente()) with check (public.e_gerente());
 create policy saidas_excluir on public.saidas for delete to authenticated using (public.e_gerente());
 
+-- erros: área Estoque vê e registra; só o gerente muda (resolvido, verificado, análise) e exclui
+create policy erros_ver on public.erros for select to authenticated using (public.pode_estoque());
+create policy erros_criar on public.erros for insert to authenticated with check (public.pode_estoque() and criado_por = auth.uid());
+create policy erros_mudar on public.erros for update to authenticated using (public.e_gerente()) with check (public.e_gerente());
+create policy erros_excluir on public.erros for delete to authenticated using (public.e_gerente());
+
+create policy erros_notas_ver on public.erros_notas for select to authenticated using (public.pode_estoque());
+create policy erros_notas_criar on public.erros_notas for insert to authenticated with check (public.pode_estoque() and criado_por = auth.uid());
+create policy erros_notas_mudar on public.erros_notas for update to authenticated using (public.e_gerente()) with check (public.e_gerente());
+create policy erros_notas_excluir on public.erros_notas for delete to authenticated using (public.e_gerente());
+
 -- ninguém sem login lê nada
-revoke all on public.perfis, public.veiculos, public.motoristas, public.entregas, public.gastos, public.saidas from anon;
-grant select, insert, update, delete on public.perfis, public.veiculos, public.motoristas, public.entregas, public.gastos, public.saidas to authenticated;
+revoke all on public.perfis, public.veiculos, public.motoristas, public.entregas, public.gastos, public.saidas, public.erros, public.erros_notas from anon;
+grant select, insert, update, delete on public.perfis, public.veiculos, public.motoristas, public.entregas, public.gastos, public.saidas, public.erros, public.erros_notas to authenticated;
 revoke execute on function public.redefinir_senha(uuid, text) from anon, public;
 grant execute on function public.redefinir_senha(uuid, text) to authenticated;
 revoke execute on function public.primeiro_gerente(text, text) from anon, public;
